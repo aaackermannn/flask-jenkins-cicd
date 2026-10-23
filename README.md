@@ -42,10 +42,11 @@ docker run --rm -p 5000:5000 flask-cicd-demo
 
 ## Запуск Jenkins
 
-Создайте файл `jenkins/.env` с паролем администратора (файл не попадает в Git):
+Создайте файл `jenkins/.env` (он не попадает в Git):
 
 ```
 JENKINS_ADMIN_PASSWORD=придумайте-пароль
+REPO_URL=https://github.com/aaackermannn/flask-jenkins-cicd.git
 ```
 
 ```bash
@@ -56,9 +57,10 @@ docker compose up -d --build
 Мастер первоначальной настройки отключён: при старте Jenkins выполняет скрипты из `jenkins/init.groovy.d` —
 создаёт пользователя `admin`, секрет `demo-access-key` и оба задания. Откройте http://localhost:8080 и войдите как `admin`.
 
-Код Jenkins берёт из этого же репозитория, примонтированного в контейнер (`file:///repos/flask-jenkins-cicd`,
-ветка `main`), поэтому изменения нужно закоммитить. Чтобы собирать из GitHub, задайте в `jenkins/.env`
-переменную `REPO_URL=https://github.com/<логин>/flask-jenkins-cicd.git` до первого запуска.
+Код Jenkins берёт из GitHub: https://github.com/aaackermannn/flask-jenkins-cicd (ветка `main`).
+Адрес задаётся переменной `REPO_URL` в `jenkins/.env`; при каждом старте Jenkins скрипт `03-jobs.groovy`
+приводит к нему оба задания. Без `REPO_URL` используется локальная копия репозитория, примонтированная
+в контейнер (`file:///repos/flask-jenkins-cicd`).
 
 Jenkins подключён к Docker-сети `cicd-net`, поэтому конвейер обращается к развёрнутым контейнерам по имени
 (`http://flask-staging:5000`), а с хоста они доступны на портах 8081 (staging) и 8082 (production).

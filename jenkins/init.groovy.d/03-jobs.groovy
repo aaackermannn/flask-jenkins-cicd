@@ -13,11 +13,10 @@ def jobs = [
 
 def jenkins = Jenkins.get()
 jobs.each { name, scriptPath, description ->
-    if (jenkins.getItem(name) == null) {
-        def scm = new GitSCM(GitSCM.createRepoList(repoUrl, null), [new BranchSpec('*/main')], null, null, [])
-        def job = jenkins.createProject(WorkflowJob, name)
-        job.setDefinition(new CpsScmFlowDefinition(scm, scriptPath))
-        job.setDescription(description)
-        job.save()
-    }
+    def job = jenkins.getItem(name) ?: jenkins.createProject(WorkflowJob, name)
+    // при каждом старте источник задания приводится к REPO_URL (например, после переезда на GitHub)
+    def scm = new GitSCM(GitSCM.createRepoList(repoUrl, null), [new BranchSpec('*/main')], null, null, [])
+    job.setDefinition(new CpsScmFlowDefinition(scm, scriptPath))
+    job.setDescription(description)
+    job.save()
 }
