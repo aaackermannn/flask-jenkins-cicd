@@ -20,7 +20,8 @@
 │   └── smoke-tests
 └── jenkins/
     ├── Dockerfile          образ Jenkins LTS + Docker CLI + плагины
-    └── docker-compose.yml  запуск Jenkins с доступом к Docker хоста
+    ├── docker-compose.yml  запуск Jenkins с доступом к Docker хоста
+    └── init.groovy.d/      автонастройка: admin, секрет, задания
 ```
 
 ## Локальный запуск
@@ -41,13 +42,24 @@ docker run --rm -p 5000:5000 flask-cicd-demo
 
 ## Запуск Jenkins
 
+Создайте файл `jenkins/.env` с паролем администратора (файл не попадает в Git):
+
+```
+JENKINS_ADMIN_PASSWORD=придумайте-пароль
+```
+
 ```bash
 cd jenkins
 docker compose up -d --build
-docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 ```
 
-Откройте http://localhost:8080, введите пароль, установите предложенные плагины и создайте администратора.
+Мастер первоначальной настройки отключён: при старте Jenkins выполняет скрипты из `jenkins/init.groovy.d` —
+создаёт пользователя `admin`, секрет `demo-access-key` и оба задания. Откройте http://localhost:8080 и войдите как `admin`.
+
+Код Jenkins берёт из этого же репозитория, примонтированного в контейнер (`file:///repos/flask-jenkins-cicd`,
+ветка `main`), поэтому изменения нужно закоммитить. Чтобы собирать из GitHub, задайте в `jenkins/.env`
+переменную `REPO_URL=https://github.com/<логин>/flask-jenkins-cicd.git` до первого запуска.
+
 Jenkins подключён к Docker-сети `cicd-net`, поэтому конвейер обращается к развёрнутым контейнерам по имени
 (`http://flask-staging:5000`), а с хоста они доступны на портах 8081 (staging) и 8082 (production).
 
@@ -58,10 +70,9 @@ Jenkins подключён к Docker-сети `cicd-net`, поэтому кон�
 | `basic-pipeline` | Pipeline script from SCM | `basic/Jenkinsfile` |
 | `flask-cicd` | Pipeline script from SCM | `Jenkinsfile` |
 
-В обоих: SCM — Git, URL репозитория на GitHub, Branch Specifier — `*/main`.
-
-Для `basic-pipeline` заранее создайте секрет: *Настроить Jenkins → Credentials → System → Global credentials →
-Add Credentials*, тип **Secret text**, ID `demo-access-key`.
+В обоих: SCM — Git, Branch Specifier — `*/main`. Задания и секрет `demo-access-key` (тип **Secret text**)
+создаются автоматически; вручную это делается через *Создать Item → Pipeline* и
+*Настроить Jenkins → Credentials → System → Global credentials → Add Credentials*.
 
 Уведомления о провале: настройте SMTP в *Настроить Jenkins → System → Уведомление по почте* и задайте переменную
 `NOTIFY_EMAIL` (*Настроить Jenkins → System → Global properties → Environment variables*).
