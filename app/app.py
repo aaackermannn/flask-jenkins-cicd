@@ -26,7 +26,7 @@ def create_app():
             b = int(request.args["b"])
         except (KeyError, ValueError):
             return jsonify(error="parameters a and b must be integers"), 400
-        return jsonify(a=a, b=b, result=a + b)
+        return jsonify(a=a, b=b, result=a - b)
 
     return app
 
