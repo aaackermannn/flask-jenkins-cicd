@@ -1,0 +1,101 @@
+// Базовый вариант задания: конвейер из методических указаний (листинг 4.6)
+// с исправленными ошибками: ветка main, LF в скриптах, шаги внутри контекста агента.
+pipeline {
+    agent any
+
+    environment {
+        DB_URL       = 'mysql+pymysql://usr:pwd@host:3306/db'
+        DISABLE_AUTH = 'true'
+        // Секрет типа Secret text с ID demo-access-key создаётся в
+        // Настроить Jenkins -> Credentials -> System -> Global credentials
+        DEMO_ACCESS_KEY = credentials('demo-access-key')
+    }
+
+    stages {
+        stage('Сборка') {
+            steps {
+                echo 'Сборка приложения...'
+                dir('basic') {
+                    sh '''
+                        echo "Этот блок содержит многострочные шаги"
+                        ls -lh
+                    '''
+                }
+                sh '''
+                    echo "URL базы данных: ${DB_URL}"
+                    echo "DISABLE_AUTH: ${DISABLE_AUTH}"
+                '''
+                echo "Запуск задачи с номером сборки: ${env.BUILD_NUMBER} на ${env.JENKINS_URL}"
+            }
+        }
+
+        stage('Тестирование') {
+            steps {
+                echo 'Тестирование приложения...'
+                echo 'Секрет подставлен из Credentials, в логе он маскируется звёздочками'
+                sh 'echo "DEMO_ACCESS_KEY=${DEMO_ACCESS_KEY}"'
+            }
+        }
+
+        stage('Деплой на стейджинг') {
+            steps {
+                dir('basic') {
+                    echo 'Изменение прав на выполнение скриптов'
+                    sh 'chmod u+x deploy smoke-tests || { echo "chmod failed"; exit 1; }'
+
+                    echo 'Деплой на стейджинг'
+                    sh './deploy staging || { echo "deploy failed"; exit 1; }'
+
+                    echo 'Выполнение smoke-тестов'
+                    sh './smoke-tests || { echo "smoke-tests failed"; exit 1; }'
+                }
+            }
+        }
+
+        stage('Проверка работоспособности') {
+            steps {
+                input 'Следует ли отправить на продакшн?'
+            }
+        }
+
+        stage('Деплой на продакшн') {
+            steps {
+                dir('basic') {
+                    sh './deploy prod || { echo "deploy to prod failed"; exit 1; }'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Это всегда будет выполняться независимо от статуса завершения'
+        }
+        success {
+            echo 'Это будет выполняться, если сборка прошла успешно'
+        }
+        failure {
+            echo 'Это будет выполняться, если задача провалилась'
+            script {
+                if (env.NOTIFY_EMAIL) {
+                    mail to: env.NOTIFY_EMAIL,
+                         subject: "${env.JOB_NAME} – Сборка № ${env.BUILD_NUMBER} провалилась",
+                         body: "Для получения дополнительной информации о провале пайплайна, проверьте консольный вывод по адресу ${env.BUILD_URL}"
+                }
+            }
+        }
+        unstable {
+            echo 'Это будет выполняться, если статус завершения был нестабильным, обычно из-за провала тестов'
+        }
+        changed {
+            echo 'Это будет выполняться, если состояние пайплайна изменилось'
+            echo 'Например, если предыдущий запуск провалился, а сейчас успешный'
+        }
+        cleanup {
+            echo 'Очистка рабочей области'
+            retry(3) {
+                cleanWs()
+            }
+        }
+    }
+}

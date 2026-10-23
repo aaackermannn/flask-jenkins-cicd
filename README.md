@@ -1,0 +1,67 @@
+# flask-jenkins-cicd
+
+Учебный репозиторий к практической работе № 4 «Практики DevOps в современных методологиях разработки».
+Простое Flask-приложение, Dockerfile и Jenkinsfile, описывающий весь процесс CI/CD:
+сборка Docker-образа → тесты → деплой в staging → проверка доступности → ручное подтверждение → деплой в production.
+
+## Структура
+
+```
+├── app/app.py              Flask-приложение: /, /health, /api/sum
+├── tests/test_app.py       модульные тесты (pytest)
+├── Dockerfile              многоэтапная сборка: base → test → runtime
+├── Jenkinsfile             усложнённый вариант: Docker-конвейер
+├── scripts/
+│   ├── deploy.sh           деплой контейнера в staging / production
+│   └── smoke_test.sh       проверка доступности развёрнутого приложения
+├── basic/                  базовый вариант по методическим указаниям
+│   ├── Jenkinsfile
+│   ├── deploy
+│   └── smoke-tests
+└── jenkins/
+    ├── Dockerfile          образ Jenkins LTS + Docker CLI + плагины
+    └── docker-compose.yml  запуск Jenkins с доступом к Docker хоста
+```
+
+## Локальный запуск
+
+```bash
+python -m venv .venv
+.venv/Scripts/pip install -r requirements-dev.txt   # Linux/macOS: .venv/bin/pip
+.venv/Scripts/python -m pytest
+.venv/Scripts/python -m app.app                     # http://localhost:5000
+```
+
+Через Docker:
+
+```bash
+docker build --target runtime -t flask-cicd-demo .
+docker run --rm -p 5000:5000 flask-cicd-demo
+```
+
+## Запуск Jenkins
+
+```bash
+cd jenkins
+docker compose up -d --build
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+Откройте http://localhost:8080, введите пароль, установите предложенные плагины и создайте администратора.
+Jenkins подключён к Docker-сети `cicd-net`, поэтому конвейер обращается к развёрнутым контейнерам по имени
+(`http://flask-staging:5000`), а с хоста они доступны на портах 8081 (staging) и 8082 (production).
+
+## Задания в Jenkins
+
+| Задание | Тип | Script Path |
+|---|---|---|
+| `basic-pipeline` | Pipeline script from SCM | `basic/Jenkinsfile` |
+| `flask-cicd` | Pipeline script from SCM | `Jenkinsfile` |
+
+В обоих: SCM — Git, URL репозитория на GitHub, Branch Specifier — `*/main`.
+
+Для `basic-pipeline` заранее создайте секрет: *Настроить Jenkins → Credentials → System → Global credentials →
+Add Credentials*, тип **Secret text**, ID `demo-access-key`.
+
+Уведомления о провале: настройте SMTP в *Настроить Jenkins → System → Уведомление по почте* и задайте переменную
+`NOTIFY_EMAIL` (*Настроить Jenkins → System → Global properties → Environment variables*).

@@ -1,0 +1,33 @@
+services:
+  jenkins:
+    build: .
+    image: jenkins-docker:lts
+    container_name: jenkins
+    # root нужен для доступа к Docker-сокету хоста (учебный стенд)
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment:
+      # мастер настройки заменён скриптами из init.groovy.d;
+      # локальный checkout нужен, чтобы брать код из примонтированного репозитория
+      JAVA_OPTS: >-
+        -Djenkins.install.runSetupWizard=false
+        -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:?задайте пароль в jenkins/.env}
+      REPO_URL: ${REPO_URL:-file:///repos/flask-jenkins-cicd}
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./init.groovy.d:/var/jenkins_home/init.groovy.d:ro
+      - ..:/repos/flask-jenkins-cicd:ro
+    networks:
+      - cicd-net
+    restart: on-failure
+
+volumes:
+  jenkins_home:
+
+networks:
+  cicd-net:
+    name: cicd-net

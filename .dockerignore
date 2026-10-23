@@ -1,0 +1,12 @@
+.git
+.gitattributes
+.gitignore
+basic
+jenkins
+scripts
+Jenkinsfile
+README.md
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.venv
